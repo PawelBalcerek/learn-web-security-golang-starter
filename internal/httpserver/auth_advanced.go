@@ -31,8 +31,8 @@ type recoveryPage struct {
 
 type passwordResetRequestPage struct {
 	templates.Page
-	ShowConfirmation bool
 	Error            string
+	ShowConfirmation bool
 }
 
 type passwordResetPage struct {

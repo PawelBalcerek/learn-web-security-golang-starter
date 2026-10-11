@@ -104,7 +104,12 @@ func (handler *Handler) BeginLogin(responseWriter http.ResponseWriter, request *
 func (handler *Handler) CompleteLogin(responseWriter http.ResponseWriter, request *http.Request) {
 	challengeID, returnTo, assertion, err := handler.passkeyResponse(responseWriter, request, true)
 	if err != nil {
-		if renderErr := handler.renderLogin(responseWriter, http.StatusBadRequest, "Invalid passkey response.", "/"); renderErr != nil {
+		if renderErr := handler.renderLogin(
+			responseWriter,
+			http.StatusBadRequest,
+			"Invalid passkey response.",
+			"/",
+		); renderErr != nil {
 			handler.internalError(responseWriter, request, renderErr)
 		}
 		return
@@ -115,14 +120,24 @@ func (handler *Handler) CompleteLogin(responseWriter http.ResponseWriter, reques
 		return
 	}
 	if !found {
-		if renderErr := handler.renderLogin(responseWriter, http.StatusBadRequest, "Challenge expired. Try again.", returnTo); renderErr != nil {
+		if renderErr := handler.renderLogin(
+			responseWriter,
+			http.StatusBadRequest,
+			"Challenge expired. Try again.",
+			returnTo,
+		); renderErr != nil {
 			handler.internalError(responseWriter, request, renderErr)
 		}
 		return
 	}
 	credentialID, found := responseCredentialID(assertion)
 	if !found {
-		if renderErr := handler.renderLogin(responseWriter, http.StatusBadRequest, "Invalid passkey response.", returnTo); renderErr != nil {
+		if renderErr := handler.renderLogin(
+			responseWriter,
+			http.StatusBadRequest,
+			"Invalid passkey response.",
+			returnTo,
+		); renderErr != nil {
 			handler.internalError(responseWriter, request, renderErr)
 		}
 		return
@@ -141,14 +156,27 @@ func (handler *Handler) CompleteLogin(responseWriter http.ResponseWriter, reques
 
 	parsedResponse, err := protocol.ParseCredentialRequestResponse(request)
 	if err != nil {
-		_ = handler.logger.Event("passkey_login_failed", map[string]any{"credentialId": credentialID, "error": err.Error()})
-		if renderErr := handler.renderLogin(responseWriter, http.StatusUnauthorized, "Passkey verification failed.", returnTo); renderErr != nil {
+		_ = handler.logger.Event(
+			"passkey_login_failed",
+			map[string]any{"credentialId": credentialID, "error": err.Error()},
+		)
+		if renderErr := handler.renderLogin(
+			responseWriter,
+			http.StatusUnauthorized,
+			"Passkey verification failed.",
+			returnTo,
+		); renderErr != nil {
 			handler.internalError(responseWriter, request, renderErr)
 		}
 		return
 	}
 	if encodeBase64URL(parsedResponse.RawID) != credentialID {
-		if renderErr := handler.renderLogin(responseWriter, http.StatusUnauthorized, "Passkey verification failed.", returnTo); renderErr != nil {
+		if renderErr := handler.renderLogin(
+			responseWriter,
+			http.StatusUnauthorized,
+			"Passkey verification failed.",
+			returnTo,
+		); renderErr != nil {
 			handler.internalError(responseWriter, request, renderErr)
 		}
 		return
@@ -159,7 +187,12 @@ func (handler *Handler) CompleteLogin(responseWriter http.ResponseWriter, reques
 		return
 	}
 	if !found {
-		if renderErr := handler.renderLogin(responseWriter, http.StatusInternalServerError, "User not found.", returnTo); renderErr != nil {
+		if renderErr := handler.renderLogin(
+			responseWriter,
+			http.StatusInternalServerError,
+			"User not found.",
+			returnTo,
+		); renderErr != nil {
 			handler.internalError(responseWriter, request, renderErr)
 		}
 		return
@@ -174,8 +207,16 @@ func (handler *Handler) CompleteLogin(responseWriter http.ResponseWriter, reques
 	var credential *webauthn.Credential
 	err = errors.New("passkey assertion validation is not implemented")
 	if err != nil {
-		_ = handler.logger.Event("passkey_login_failed", map[string]any{"credentialId": credentialID, "error": err.Error()})
-		if renderErr := handler.renderLogin(responseWriter, http.StatusUnauthorized, "Passkey verification failed.", returnTo); renderErr != nil {
+		_ = handler.logger.Event(
+			"passkey_login_failed",
+			map[string]any{"credentialId": credentialID, "error": err.Error()},
+		)
+		if renderErr := handler.renderLogin(
+			responseWriter,
+			http.StatusUnauthorized,
+			"Passkey verification failed.",
+			returnTo,
+		); renderErr != nil {
 			handler.internalError(responseWriter, request, renderErr)
 		}
 		return
@@ -193,7 +234,10 @@ func (handler *Handler) CompleteLogin(responseWriter http.ResponseWriter, reques
 		handler.internalError(responseWriter, request, err)
 		return
 	}
-	_ = handler.logger.Event("passkey_login_success", map[string]any{"userId": account.ID, "email": account.Email, "credentialId": credentialID})
+	_ = handler.logger.Event(
+		"passkey_login_success",
+		map[string]any{"userId": account.ID, "email": account.Email, "credentialId": credentialID},
+	)
 	sessions.SetCookie(responseWriter, session)
 	if totpLoginChallengeToken(request) != "" {
 		clearTOTPLoginChallengeCookie(responseWriter)

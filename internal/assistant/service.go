@@ -75,7 +75,6 @@ func RunSimulatedAssistant(ctx context.Context, request Request) (string, error)
 	}
 	userID, _ := requestedUserID(userMessage)
 	for _, tool := range request.Tools {
-
 		toolRequested := tool.Name == "get_order_status" && !refundPattern.MatchString(userMessage)
 		if toolRequested && tool.Execute != nil {
 			return tool.Execute(ctx, map[string]any{"orderId": orderID, "userId": userID})

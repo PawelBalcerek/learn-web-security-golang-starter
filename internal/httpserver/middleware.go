@@ -9,6 +9,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -207,6 +208,39 @@ func fixedWindowRateLimiter(options rateLimitOptions) middleware {
 	validateRateLimitOptions(options)
 	return func(next http.Handler) http.Handler {
 		return next
+	}
+}
+
+func originValidator(appOrigin string, renderer *templates.Renderer) middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				next.ServeHTTP(w, r)
+				return
+			}
+			origin := r.Header.Get("Origin")
+			if origin == appOrigin {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if origin == "" {
+				referer := r.Header.Get("Referer")
+				parsedReferer, err := url.Parse(referer)
+				if err == nil && referer != "" && parsedReferer.Scheme+"://"+parsedReferer.Host == appOrigin {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			if err := httpx.RespondWithErrorPage(
+				w,
+				renderer,
+				http.StatusForbidden,
+				"Forbidden",
+				"Unknown request source.",
+			); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
+		})
 	}
 }
 

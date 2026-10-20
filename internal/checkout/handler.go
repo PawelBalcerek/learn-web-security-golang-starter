@@ -80,7 +80,7 @@ func (handler *Handler) Page(responseWriter http.ResponseWriter, request *http.R
 
 func (handler *Handler) Submit(responseWriter http.ResponseWriter, request *http.Request) {
 	current, ok := handler.requireAuth(responseWriter, request)
-	if !ok {
+	if !ok || !handler.verifyCSRF(responseWriter, request, current.Session.CSRFToken) {
 		return
 	}
 	items, err := handler.cartStore.ListItems(request.Context(), current.User.ID)
@@ -188,14 +188,14 @@ func (handler *Handler) Processing(responseWriter http.ResponseWriter, request *
 }
 
 func (handler *Handler) parseCheckoutForm(
-	responseWriter http.ResponseWriter, 
+	responseWriter http.ResponseWriter,
 	request *http.Request,
 ) (orders.ShippingDetails, bool) {
 	fieldNames := []string{
-		"shippingName", 
-		"shippingAddress", 
-		"shippingCity", 
-		"shippingRegion", 
+		"shippingName",
+		"shippingAddress",
+		"shippingCity",
+		"shippingRegion",
 		"shippingPostalCode",
 	}
 	fieldValues := make(map[string]string, len(fieldNames))
@@ -203,9 +203,9 @@ func (handler *Handler) parseCheckoutForm(
 		fieldValue, err := httpx.FormValue(request, fieldName)
 		if err != nil {
 			handler.errorPage(
-				responseWriter, 
-				http.StatusBadRequest, 
-				"Invalid Request", 
+				responseWriter,
+				http.StatusBadRequest,
+				"Invalid Request",
 				"The submitted form is invalid.",
 			)
 			return orders.ShippingDetails{}, false
@@ -274,4 +274,25 @@ func firstUnavailable(items []cart.Item) *cart.Item {
 func parseDiscount(value string) int64 {
 	discount, _ := strconv.ParseInt(value, 10, 64)
 	return discount
+}
+
+func (handler *Handler) verifyCSRF(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	expectedToken string,
+) bool {
+	actualToken, err := httpx.FormValue(request, "csrfToken")
+	if err != nil {
+		handler.invalidRequest(responseWriter)
+		return false
+	}
+	if sessions.CSRFTokensMatch(expectedToken, actualToken) {
+		return true
+	}
+	handler.errorPage(responseWriter, http.StatusForbidden, "Forbidden", "Your request could not be verified.")
+	return false
+}
+
+func (handler *Handler) invalidRequest(responseWriter http.ResponseWriter) {
+	handler.errorPage(responseWriter, http.StatusBadRequest, "Invalid Request", "The submitted form is invalid.")
 }

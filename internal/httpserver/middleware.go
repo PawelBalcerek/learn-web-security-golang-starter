@@ -62,9 +62,13 @@ func cspNonce(next http.Handler) http.Handler {
 
 func csp(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nonce := httpx.CSPNonce(r.Context())
 		w.Header().Add(
 			"Content-Security-Policy",
-			"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+			fmt.Sprintf(
+				"default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+				nonce,
+			),
 		)
 		next.ServeHTTP(w, r)
 	})

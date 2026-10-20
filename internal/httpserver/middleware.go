@@ -66,10 +66,11 @@ func csp(next http.Handler) http.Handler {
 		w.Header().Add(
 			"Content-Security-Policy",
 			fmt.Sprintf(
-				"default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+				"default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'",
 				nonce,
 			),
 		)
+		w.Header().Add("X-Frame-Options", "SAMEORIGIN")
 		next.ServeHTTP(w, r)
 	})
 }

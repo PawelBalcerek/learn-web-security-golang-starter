@@ -241,6 +241,7 @@ func New(database *sql.DB, logger *logging.Logger, options Options) (*Applicatio
 		mainMux,
 		cspNonce,
 		csp,
+		referrerPolicy,
 		recoverPanics(logger, renderer),
 		noSniff,
 	)

@@ -30,6 +30,30 @@ func applyMiddleware(handler http.Handler, middlewareChain ...middleware) http.H
 	return handler
 }
 
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nonce := httpx.CSPNonce(r.Context())
+		w.Header().Add(
+			"Content-Security-Policy",
+			fmt.Sprintf(
+				"default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'",
+				nonce,
+			),
+		)
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+		w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+		w.Header().Set("Origin-Agent-Cluster", "?1")
+		w.Header().Set("X-DNS-Prefetch-Control", "off")
+		w.Header().Set("X-Download-Options", "noopen")
+		w.Header().Set("X-Permitted-Cross-Domain-Policies", "none")
+		w.Header().Set("X-XSS-Protection", "0")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func cspNonce(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
 		nonceBytes := make([]byte, 16)
@@ -40,28 +64,6 @@ func cspNonce(next http.Handler) http.Handler {
 		nonce := base64.StdEncoding.EncodeToString(nonceBytes)
 		request = request.WithContext(httpx.WithCSPNonce(request.Context(), nonce))
 		next.ServeHTTP(responseWriter, request)
-	})
-}
-
-func csp(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		nonce := httpx.CSPNonce(r.Context())
-		w.Header().Add(
-			"Content-Security-Policy",
-			fmt.Sprintf(
-				"default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'",
-				nonce,
-			),
-		)
-		w.Header().Add("X-Frame-Options", "SAMEORIGIN")
-		next.ServeHTTP(w, r)
-	})
-}
-
-func referrerPolicy(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Referrer-Policy", "strict-origin-when-cross-origin")
-		next.ServeHTTP(w, r)
 	})
 }
 
@@ -83,13 +85,6 @@ func recoverPanics(logger *logging.Logger, renderer *templates.Renderer) middlew
 			next.ServeHTTP(responseWriter, request)
 		})
 	}
-}
-
-func noSniff(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		next.ServeHTTP(w, r)
-	})
 }
 
 func LoadShedder(_ int, _ int) func(http.Handler) http.Handler {

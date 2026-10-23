@@ -227,9 +227,9 @@ func New(database *sql.DB, logger *logging.Logger, options Options) (*Applicatio
 	mainMux.Handle("GET /styles.css", staticHandler)
 	mainMux.Handle("GET /passkey.js", staticHandler)
 	mainMux.Handle("GET /vendor/simplewebauthn/index.umd.min.js", staticHandler)
-	mainMux.Handle("GET /shipping-widget.css", staticHandler)
+	mainMux.Handle("GET /shipping-widget.css", crossOrigin(staticHandler))
 	mainMux.Handle("GET /shipping-widget.html", staticHandler)
-	mainMux.Handle("GET /shipping-widget.js", staticHandler)
+	mainMux.Handle("GET /shipping-widget.js", crossOrigin(staticHandler))
 	mainMux.Handle("GET /product-photos/{filename}", staticHandler)
 	mainMux.HandleFunc("POST /integrations/pawpal/webhook", pawPalHandler.Webhook)
 	mainMux.Handle("/", dynamicHandler)
@@ -237,10 +237,8 @@ func New(database *sql.DB, logger *logging.Logger, options Options) (*Applicatio
 	handler := applyMiddleware(
 		mainMux,
 		cspNonce,
-		csp,
-		referrerPolicy,
+		securityHeaders,
 		recoverPanics(logger, renderer),
-		noSniff,
 	)
 	return &Application{Handler: handler, publicRoot: publicRoot}, nil
 }
@@ -259,5 +257,12 @@ func newStaticHandler(publicRoot *os.Root) http.Handler {
 			return
 		}
 		fileServer.ServeHTTP(responseWriter, request)
+	})
+}
+
+func crossOrigin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
+		next.ServeHTTP(w, r)
 	})
 }

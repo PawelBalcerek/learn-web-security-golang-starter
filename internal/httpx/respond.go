@@ -10,12 +10,15 @@ import (
 	"github.com/bootdotdev/learn-web-security/internal/textutils"
 )
 
-func RespondWithError(responseWriter http.ResponseWriter, code int, message string) {
+const serverErrorMsg = "The request failed. Try again, or return to the store."
+
+func RespondWithError(rw http.ResponseWriter, code int, message string) {
 	message = textutils.StripANSI(message)
 	if code >= 500 {
 		fmt.Printf("Responding with error code %v, message: %v\n", code, message)
+		message = serverErrorMsg
 	}
-	RespondWithJSON(responseWriter, code, map[string]string{"error": message})
+	RespondWithJSON(rw, code, map[string]string{"error": message})
 }
 
 func RespondWithJSON(responseWriter http.ResponseWriter, code int, payload any) {
@@ -27,7 +30,17 @@ func RespondWithJSON(responseWriter http.ResponseWriter, code int, payload any) 
 	}
 }
 
-func RespondWithErrorPage(responseWriter http.ResponseWriter, renderer *templates.Renderer, statusCode int, title, message string) error {
+func RespondWithErrorPage(
+	responseWriter http.ResponseWriter,
+	renderer *templates.Renderer,
+	statusCode int,
+	title,
+	message string,
+) error {
+	if statusCode >= 500 {
+		title = "Something Went Wrong"
+		message = serverErrorMsg
+	}
 	return renderer.Render(responseWriter, statusCode, "error", templates.ErrorPage{
 		Title:      title,
 		StatusCode: statusCode,

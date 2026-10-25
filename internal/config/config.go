@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -27,6 +29,7 @@ const (
 
 type Config struct {
 	PawPalAPIKey               string
+	DownloadSigningKey         [32]byte
 	AppOrigin                  string
 	Port                       int
 	DatabasePath               string
@@ -43,11 +46,19 @@ type AttackerLabConfig struct {
 }
 
 func Load(workingDirectory string) (Config, error) {
-	return Parse(processEnvironment(), workingDirectory)
+	env, err := processEnvironment(workingDirectory)
+	if err != nil {
+		return Config{}, err
+	}
+	return Parse(env, workingDirectory)
 }
 
 func LoadAttackerLab(workingDirectory string) (AttackerLabConfig, error) {
-	return ParseAttackerLab(processEnvironment())
+	env, err := processEnvironment(workingDirectory)
+	if err != nil {
+		return AttackerLabConfig{}, err
+	}
+	return ParseAttackerLab(env)
 }
 
 func Parse(environment map[string]string, workingDirectory string) (Config, error) {
@@ -58,7 +69,13 @@ func Parse(environment map[string]string, workingDirectory string) (Config, erro
 	if port > 65_535 {
 		return Config{}, errors.New("PORT must be no greater than 65535")
 	}
+
 	pawPalAPIKey, err := requireEnvironmentVariable(environment, "PAWPAL_API_KEY")
+	if err != nil {
+		return Config{}, err
+	}
+
+	downloadSigningKey, err := parseDownloadSigningKey(environment)
 	if err != nil {
 		return Config{}, err
 	}
@@ -85,6 +102,7 @@ func Parse(environment map[string]string, workingDirectory string) (Config, erro
 
 	return Config{
 		PawPalAPIKey:               pawPalAPIKey,
+		DownloadSigningKey:         downloadSigningKey,
 		AppOrigin:                  appOrigin,
 		Port:                       port,
 		DatabasePath:               databasePath,
@@ -108,15 +126,18 @@ func ParseAttackerLab(environment map[string]string) (AttackerLabConfig, error) 
 	return AttackerLabConfig{Port: port}, nil
 }
 
-func processEnvironment() map[string]string {
-	environment := make(map[string]string)
+func processEnvironment(workingDirectory string) (map[string]string, error) {
+	environment, err := godotenv.Read(filepath.Join(workingDirectory, ".env"))
+	if err != nil {
+		return map[string]string{}, err
+	}
 	for _, entry := range os.Environ() {
 		name, value, found := strings.Cut(entry, "=")
 		if found {
 			environment[name] = value
 		}
 	}
-	return environment
+	return environment, nil
 }
 
 func valueOrDefault(environment map[string]string, name, fallback string) string {
@@ -132,6 +153,19 @@ func parseNonNegativeInteger(value, name string) (int, error) {
 		return 0, fmt.Errorf("%s must be a non-negative integer", name)
 	}
 	return parsed, nil
+}
+
+func parseDownloadSigningKey(env map[string]string) ([32]byte, error) {
+	downloadSigningKey, err := requireEnvironmentVariable(env, "DOWNLOAD_SIGNING_KEY")
+	if err != nil {
+		return [32]byte{}, err
+	}
+
+	downloadSigningKeyBytes, err := parseEncryptionKey(downloadSigningKey, "DOWNLOAD_SIGNING_KEY")
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return downloadSigningKeyBytes, nil
 }
 
 func parseOrigin(value string) (string, error) {
